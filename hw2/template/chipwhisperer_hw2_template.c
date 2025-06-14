@@ -4,29 +4,20 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-uint8_t set_key(uint8_t *pt, uint8_t len)
-{
-	/*
-	 * set_key - function used to change the key
-	 * given as a callback to the simpleserial interface
-	 * Needs a command 'k' and a 16 byte (256 bit) input
-	 */
-	aes_indep_init();
-	aes_indep_key(pt); // sets the key. size = 16 bytes
-	return 0x0;
-}
-
 uint8_t get_pt(uint8_t *pt, uint8_t len)
 {
 	/*
-	 * get_pt - does AES block encryption with the key 
-	 * stored inside the microcontroller
-	 * This key can be configured using the `set_key` function
+	 * get_pt - does AES block encryption
 	 *
+	 * receives as input both key and a plaintext
+	 * 'p' [16 bytes of plaintext] [16 bytes of key]
+	 * 
 	 * This function is given as a callback to the simpleserial interface
-	 * will be called after receiving a command 'p' and a 16 byte input
+	 * will be called after receiving a command 'p' and a 32 byte input
 	 */
 	aes_indep_enc_pretrigger(pt);
+	aes_indep_init();
+	aes_indep_key(&pt[KEY_LENGTH]);
 
 	trigger_high();
 	aes_indep_enc(pt); /* encrypting the data block */
@@ -34,7 +25,7 @@ uint8_t get_pt(uint8_t *pt, uint8_t len)
 
 	aes_indep_enc_posttrigger(pt);
 
-	simpleserial_put('r', 16, pt);
+	simpleserial_put('r', KEY_LENGTH, pt);
 	return 0x00;
 }
 
@@ -50,8 +41,7 @@ int main(void)
 	aes_indep_key(secret_key); // sets the key. size = 16 bytes
 
 	simpleserial_init();
-	simpleserial_addcmd('p', 16, get_pt);
-	simpleserial_addcmd('k', 16, set_key);
+	simpleserial_addcmd('p', 2 * KEY_LENGTH, get_pt);
 	while (1)
 		simpleserial_get();
 }
